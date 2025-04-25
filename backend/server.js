@@ -56,6 +56,20 @@ app.get('/publications/user/:userId', (req, res) => {
   });
 });
 
+// Route to fetch comments of a publication
+app.get('/publications/:postId/comments', (req, res) => {
+  const postId = req.params.postId;
+  const query = 'SELECT * FROM Commentaire WHERE PostID = ? ORDER BY date_commentaire ASC';
+  db.query(query, [postId], (err, results) => {
+    if (err) {
+      console.error('Error fetching comments:', err);
+      res.status(500).send('Error fetching comments');
+      return;
+    }
+    res.json(results);
+  });
+});
+
 // Route to create a new publication
 app.post('/publications', (req, res) => {
   const { Titre, Contenu, UserID } = req.body;
@@ -91,6 +105,97 @@ app.post('/users', (req, res) => {
       return;
     }
     res.status(201).json({ message: 'User created successfully', userId: results.insertId });
+  });
+});
+
+// Route to create a new note for a given EcoleID
+app.post('/ecoles/:ecoleId/notes', (req, res) => {
+  const ecoleId = req.params.ecoleId;
+  const { valeur, commentaire, AuthorID } = req.body;
+
+  if (valeur === undefined || !AuthorID) {
+    return res.status(400).send('valeur and AuthorID are required');
+  }
+
+  const query = 'INSERT INTO Note (valeur, commentaire, AuthorID, EcoleID) VALUES (?, ?, ?, ?)';
+  db.query(query, [valeur, commentaire || null, AuthorID, ecoleId], (err, results) => {
+    if (err) {
+      console.error('Error creating note:', err);
+      res.status(500).send('Error creating note');
+      return;
+    }
+    res.status(201).json({ message: 'Note created successfully', noteId: results.insertId });
+  });
+});
+
+// Route to create a new comment for a publication
+app.post('/publications/:postId/comments', (req, res) => {
+  const postId = req.params.postId;
+  const { Contenu, UserID } = req.body;
+
+  if (!Contenu || !UserID) {
+    return res.status(400).send('Contenu and UserID are required');
+  }
+
+  const query = 'INSERT INTO Commentaire (Contenu, PostID, UserID) VALUES (?, ?, ?)';
+  db.query(query, [Contenu, postId, UserID], (err, results) => {
+    if (err) {
+      console.error('Error creating comment:', err);
+      res.status(500).send('Error creating comment');
+      return;
+    }
+    res.status(201).json({ message: 'Comment created successfully', commentId: results.insertId });
+  });
+});
+
+// Route to create a new message from sender to receiver
+app.post('/users/:senderId/messages/:receiverId', (req, res) => {
+  const senderId = req.params.senderId;
+  const receiverId = req.params.receiverId;
+  const { message } = req.body;
+
+  if (!message) {
+    return res.status(400).send('message is required');
+  }
+
+  const query = 'INSERT INTO Message (message, SenderID, ReceiverID) VALUES (?, ?, ?)';
+  db.query(query, [message, senderId, receiverId], (err, results) => {
+    if (err) {
+      console.error('Error creating message:', err);
+      res.status(500).send('Error creating message');
+      return;
+    }
+    res.status(201).json({ message: 'Message created successfully', messageId: results.insertId });
+  });
+});
+
+// Route to create a new connexion between two users
+app.post('/users/:userId0/connexions/:userId1', (req, res) => {
+  const userId0 = req.params.userId0;
+  const userId1 = req.params.userId1;
+
+  const query = 'INSERT INTO Connexion (UserID_0, UserID_1) VALUES (?, ?)';
+  db.query(query, [userId0, userId1], (err, results) => {
+    if (err) {
+      console.error('Error creating connexion:', err);
+      res.status(500).send('Error creating connexion');
+      return;
+    }
+    res.status(201).json({ message: 'Connexion created successfully', connexionId: results.insertId });
+  });
+});
+
+// Route to fetch all notes for a given EcoleID
+app.get('/ecoles/:ecoleId/notes', (req, res) => {
+  const ecoleId = req.params.ecoleId;
+  const query = 'SELECT * FROM Note WHERE EcoleID = ? ORDER BY noteID ASC';
+  db.query(query, [ecoleId], (err, results) => {
+    if (err) {
+      console.error('Error fetching notes:', err);
+      res.status(500).send('Error fetching notes');
+      return;
+    }
+    res.json(results);
   });
 });
 
