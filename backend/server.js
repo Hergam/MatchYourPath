@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs'); // Add this line
 require('dotenv').config(); // Load environment variables
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(express.json());
@@ -83,6 +83,24 @@ app.post('/login', (req, res) => {
 
 // Get, update, delete user
 // (Add GET /users/:userId if needed)
+app.get('/users/:userId', (req, res) => {
+  const userId = parseInt(req.params.userId, 10);
+  if (!userId || userId < 1) {
+    return res.status(400).send('Invalid userId');
+  }
+  const query = 'SELECT UserID, Nom, Email, Statut FROM Utilisateur WHERE UserID = ?';
+  db.query(query, [userId], (err, results) => {
+    if (err) {
+      console.error('Error fetching user:', err);
+      return res.status(500).send('Error fetching user');
+    }
+    if (results.length === 0) {
+      return res.status(404).send('User not found');
+    }
+    res.json(results[0]);
+  });
+});
+
 app.put('/users/:userId', async (req, res) => {
   const userId = parseInt(req.params.userId, 10);
   const { Nom, Password, Email, Statut } = req.body;
