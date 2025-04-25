@@ -1,0 +1,78 @@
+CREATE DATABASE IF NOT EXISTS MatchYourPath;
+USE MatchYourPath;
+
+DROP TABLE IF EXISTS Connexion;
+DROP TABLE IF EXISTS Message;
+DROP TABLE IF EXISTS Note;
+DROP TABLE IF EXISTS Commentaire;
+DROP TABLE IF EXISTS Publication;
+DROP TABLE IF EXISTS Utilisateur;
+
+CREATE TABLE Utilisateur(
+   UserID INT AUTO_INCREMENT,
+   Nom VARCHAR(50) NOT NULL,
+   Password CHAR(64) NOT NULL,
+   Email VARCHAR(50) NOT NULL,
+   Statut VARCHAR(50) NOT NULL,
+   PRIMARY KEY(UserID),
+   UNIQUE(Email)
+);
+
+CREATE TABLE Publication(
+   PostID INT AUTO_INCREMENT,
+   Titre VARCHAR(50) NOT NULL,
+
+   Contenu TEXT NOT NULL,
+   date_post DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+   UserID INT NOT NULL,
+   PRIMARY KEY(PostID),
+   FOREIGN KEY(UserID) REFERENCES Utilisateur(UserID) ON DELETE CASCADE
+);
+
+CREATE TABLE Commentaire(
+   CommentaireID INT AUTO_INCREMENT,
+   Contenu TEXT NOT NULL,
+   date_commentaire DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+   PostID INT NOT NULL,
+   UserID INT NOT NULL,
+   PRIMARY KEY(CommentaireID),
+   FOREIGN KEY(PostID) REFERENCES Publication(PostID) ON DELETE CASCADE,
+   FOREIGN KEY(UserID) REFERENCES Utilisateur(UserID) ON DELETE CASCADE
+);
+
+CREATE TABLE Note(
+   noteID INT AUTO_INCREMENT,
+   valeur INT NOT NULL,
+   commentaire VARCHAR(1000),
+   AuthorID INT NOT NULL,
+   EcoleID INT NOT NULL,
+   PRIMARY KEY(noteID),
+   FOREIGN KEY(AuthorID) REFERENCES Utilisateur(UserID) ON DELETE CASCADE,
+   FOREIGN KEY(EcoleID) REFERENCES Utilisateur(UserID) ON DELETE CASCADE
+);
+
+CREATE TABLE Message(
+   messageID INT AUTO_INCREMENT,
+   message TEXT,
+   date_message DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+   SenderID INT NOT NULL,
+   ReceiverID INT NOT NULL,
+   PRIMARY KEY(messageID),
+   FOREIGN KEY(SenderID) REFERENCES Utilisateur(UserID) ON DELETE CASCADE,
+   FOREIGN KEY(ReceiverID) REFERENCES Utilisateur(UserID) ON DELETE CASCADE
+);
+
+CREATE TABLE Connexion(
+   ConnexionID INT AUTO_INCREMENT,
+   Statut VARCHAR(50) NOT NULL,
+   date_connexion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+   UserID_0 INT NOT NULL,
+   UserID_1 INT NOT NULL,
+   PRIMARY KEY(ConnexionID),
+   FOREIGN KEY(UserID_0) REFERENCES Utilisateur(UserID) ON DELETE CASCADE,
+   FOREIGN KEY(UserID_1) REFERENCES Utilisateur(UserID) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_date_post ON Publication(date_post);
+CREATE INDEX idx_date_message ON Message(date_message);
+CREATE INDEX idx_date_connexion ON Connexion(date_connexion);
