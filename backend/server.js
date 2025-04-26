@@ -179,7 +179,12 @@ app.post('/publications', (req, res) => {
 });
 // Get all publications
 app.get('/publications', (req, res) => {
-  const query = 'SELECT * FROM Publication';
+  const query = `
+    SELECT p.*, u.Nom
+    FROM Publication p
+    LEFT JOIN Utilisateur u ON p.UserID = u.UserID
+    ORDER BY p.date_post DESC
+  `;
   db.query(query, (err, results) => {
     if (err) {
       console.error('Error fetching publications:', err);

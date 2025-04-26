@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
@@ -12,42 +13,52 @@ import Divider from '@mui/material/Divider';
 import Paper from '@mui/material/Paper';
 
 function Home() {
-  // Example posts (replace with API data in real app)
-  const [posts, setPosts] = useState([
-    {
-      id: 1,
-      author: 'Alice',
-      avatar: 'A',
-      date: '2024-05-01',
-      content: 'Excited to join MatchYourPath! 🚀'
-    },
-    {
-      id: 2,
-      author: 'Bob',
-      avatar: 'B',
-      date: '2024-05-02',
-      content: 'Anyone interested in collaborating on a project?'
-    }
-  ]);
+  const [posts, setPosts] = useState([]);
   const [newPost, setNewPost] = useState('');
-
+  const [newTitle, setNewTitle] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [posting, setPosting] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
 
-  const handlePost = (e) => {
+  // Fetch publications from backend
+  useEffect(() => {
+    const fetchPosts = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await axios.get('/publications');
+        setPosts(res.data.reverse()); // Show newest first
+      } catch (err) {
+        setError('Failed to load posts');
+      }
+      setLoading(false);
+    };
+    fetchPosts();
+  }, []);
+
+  // Handle new post creation
+  const handlePost = async (e) => {
     e.preventDefault();
-    if (newPost.trim()) {
-      setPosts([
-        {
-          id: posts.length + 1,
-          author: 'You',
-          avatar: 'Y',
-          date: new Date().toISOString().slice(0, 10),
-          content: newPost
-        },
-        ...posts
-      ]);
+    if (!newPost.trim() || !newTitle.trim()) return;
+    setError('');
+    setPosting(true);
+    try {
+      await axios.post('/publications', {
+        Titre: newTitle,
+        Contenu: newPost,
+        UserID: user.UserID
+      });
+      // Fetch the new list of posts after posting
+      const updated = await axios.get('/publications');
+      setPosts(updated.data.reverse());
       setNewPost('');
+      setNewTitle('');
+    } catch (err) {
+      setError('Failed to create post');
     }
+    setPosting(false);
   };
 
   return (
@@ -62,14 +73,26 @@ function Home() {
       </Paper>
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Box component="form" onSubmit={handlePost} sx={{ display: 'flex', alignItems: 'center' }}>
-            <Avatar
-              sx={{ bgcolor: 'primary.main', mr: 2, cursor: 'pointer' }}
-              onClick={() => navigate('/profile')}
-              title="Go to profile"
-            >
-              Y
-            </Avatar>
+          <Box component="form" onSubmit={handlePost} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Avatar
+                sx={{ bgcolor: 'primary.main', mr: 2, cursor: 'pointer' }}
+                onClick={() => navigate('/profile')}
+                title="Go to profile"
+              >
+                {user.Nom ? user.Nom[0].toUpperCase() : 'Y'}
+              </Avatar>
+              <TextField
+                fullWidth
+                variant="outlined"
+                placeholder="Title"
+                value={newTitle}
+                onChange={e => setNewTitle(e.target.value)}
+                size="small"
+                sx={{ mr: 2 }}
+                disabled={posting}
+              />
+            </Box>
             <TextField
               fullWidth
               variant="outlined"
@@ -77,28 +100,52 @@ function Home() {
               value={newPost}
               onChange={e => setNewPost(e.target.value)}
               size="small"
-              sx={{ mr: 2 }}
+              multiline
+              minRows={2}
+              disabled={posting}
             />
-            <Button type="submit" variant="contained" disabled={!newPost.trim()}>
-              Post
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={!newPost.trim() || !newTitle.trim() || posting}
+            >
+              {posting ? 'Posting...' : 'Post'}
             </Button>
+            {error && (
+              <Typography color="error" sx={{ mt: 2, textAlign: 'center' }}>
+                {error}
+              </Typography>
+            )}
           </Box>
         </CardContent>
       </Card>
       <Divider sx={{ mb: 2 }} />
       <Box>
-        {posts.map(post => (
-          <Card key={post.id} sx={{ mb: 2 }}>
-            <CardHeader
-              avatar={<Avatar sx={{ bgcolor: 'secondary.main' }}>{post.avatar}</Avatar>}
-              title={post.author}
-              subheader={post.date}
-            />
-            <CardContent>
-              <Typography variant="body1">{post.content}</Typography>
-            </CardContent>
-          </Card>
-        ))}
+        {loading ? (
+          <Typography sx={{ textAlign: 'center', mt: 4 }}>Loading...</Typography>
+        ) : posts.length === 0 ? (
+          <Typography sx={{ textAlign: 'center', mt: 4 }}>No posts yet.</Typography>
+        ) : (
+          posts.map(post => (
+            <Card key={post.PostID} sx={{ mb: 2 }}>
+              <CardHeader
+                avatar={
+                  <Avatar sx={{ bgcolor: 'secondary.main' }}>
+                    {post.Nom ? post.Nom[0].toUpperCase() : '?'}
+                  </Avatar>
+                }
+                title={post.Nom ? post.Nom : <span style={{color:'#888'}}>Unknown</span>}
+                subheader={post.date_post ? post.date_post.slice(0, 10) : ''}
+              />
+              <CardContent>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                  {post.Titre}
+                </Typography>
+                <Typography variant="body1">{post.Contenu}</Typography>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </Box>
     </Box>
   );

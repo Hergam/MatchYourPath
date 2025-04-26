@@ -4,10 +4,11 @@ import Login from './components/Login';
 import Register from './components/Register';
 import Home from './components/Home';
 import Profile from './components/Profile';
-
-function Publications() {
-  return <h2>Publications Page</h2>;
-}
+import AppBar from '@mui/material/AppBar';
+import Toolbar from '@mui/material/Toolbar';
+import Button from '@mui/material/Button';
+import Box from '@mui/material/Box';
+import Avatar from '@mui/material/Avatar';
 
 function RequireAuth({ children }) {
   const navigate = useNavigate();
@@ -27,6 +28,7 @@ function RequireAuth({ children }) {
 
 function App() {
   const [isAuth, setIsAuth] = useState(!!localStorage.getItem('user'));
+  const user = isAuth ? JSON.parse(localStorage.getItem('user')) : null;
 
   useEffect(() => {
     const handleStorage = () => setIsAuth(!!localStorage.getItem('user'));
@@ -36,14 +38,37 @@ function App() {
 
   return (
     <Router>
-      <nav>
-        <Link to="/">Home</Link> | <Link to="/publications">Publications</Link>
-        {!isAuth && (
-          <>
-            {' '}| <Link to="/login">Login</Link> | <Link to="/register">Register</Link>
-          </>
-        )}
-      </nav>
+      <AppBar position="static" color="primary" sx={{ mb: 4 }}>
+        <Toolbar>
+          {isAuth && (
+            <Button
+              color="inherit"
+              component={Link}
+              to="/profile"
+              sx={{ minWidth: 0, p: 0, mr: 2 }}
+            >
+              <Avatar sx={{ bgcolor: 'secondary.main', width: 36, height: 36 }}>
+                {user?.Nom ? user.Nom[0].toUpperCase() : 'U'}
+              </Avatar>
+            </Button>
+          )}
+          <Box sx={{ flexGrow: 1, display: 'inline-flex', alignItems: 'center' }}>
+            <Button color="inherit" component={Link} to="/" sx={{ fontWeight: 600 }}>
+              Home
+            </Button>
+            {!isAuth && (
+              <>
+                <Button color="inherit" component={Link} to="/login" sx={{ fontWeight: 600 }}>
+                  Login
+                </Button>
+                <Button color="inherit" component={Link} to="/register" sx={{ fontWeight: 600 }}>
+                  Register
+                </Button>
+              </>
+            )}
+          </Box>
+        </Toolbar>
+      </AppBar>
       <Routes>
         <Route
           path="/"
@@ -53,7 +78,6 @@ function App() {
             </RequireAuth>
           }
         />
-        <Route path="/publications" element={<Publications />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/profile" element={<Profile />} />
