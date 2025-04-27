@@ -1,13 +1,42 @@
 const express = require('express');
 const mysql = require('mysql2');
-const bcrypt = require('bcryptjs'); // Add this line
-require('dotenv').config(); // Load environment variables
+const bcrypt = require('bcryptjs');
+require('dotenv').config();
+const { jsonParser, isAdmin } = require('./middleware'); // <-- import middleware
+const path = require('path');
+const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(express.json());
+app.use(jsonParser); // <-- use imported middleware
+
+// Serve static files from uploads folder
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Multer config for image uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, '../uploads'));
+  },
+  filename: (req, file, cb) => {
+    // Use timestamp + original name for uniqueness
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+  }
+});
+const upload = multer({ storage });
+
+// Upload image endpoint
+app.post('/upload', upload.single('image'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).send('No file uploaded');
+  }
+  // Return the URL to access the uploaded image
+  res.json({ url: `/uploads/${req.file.filename}` });
+});
 
 // Database connection
 const db = mysql.createConnection({
@@ -69,15 +98,32 @@ app.post('/login', (req, res) => {
       return res.status(500).send('Error fetching user');
     }
     if (results.length === 0) {
-      return res.status(401).send('Invalid credentials');
+      return res.status(401).send('Invalid credentials (email not found)');
     }
     const user = results[0];
-    const match = await bcrypt.compare(Password, user.Password);
-    if (!match) {
-      return res.status(401).send('Invalid credentials');
+    // --- FIX: Remove trailing spaces for CHAR(64) hashes (MySQL pads CHAR with spaces) ---
+    let passwordHash = user.Password;
+    if (Buffer.isBuffer(passwordHash)) {
+      passwordHash = passwordHash.toString('utf8');
     }
-    delete user.Password;
-    res.json({ message: 'Login successful', user });
+    passwordHash = passwordHash.trim(); // Remove trailing spaces
+
+    // Defensive: check for empty hash (should never happen)
+    if (!passwordHash) {
+      return res.status(401).send('Invalid credentials (no password set)');
+    }
+
+    try {
+      const match = await bcrypt.compare(Password, passwordHash);
+      if (!match) {
+        return res.status(401).send('Invalid credentials');
+      }
+      delete user.Password;
+      res.json({ message: 'Login successful', user });
+    } catch (err2) {
+      console.error('Error comparing password:', err2);
+      return res.status(500).send('Error checking password');
+    }
   });
 });
 
@@ -103,25 +149,39 @@ app.get('/users/:userId', (req, res) => {
 
 app.put('/users/:userId', async (req, res) => {
   const userId = parseInt(req.params.userId, 10);
-  const { Nom, Password, Email, Statut } = req.body;
+  const { Nom, Password, Email, Statut, Biographie } = req.body;
   if (!userId || userId < 1) {
     return res.status(400).send('Invalid userId');
   }
   if (
     typeof Nom !== 'string' || !Nom.trim() ||
-    typeof Password !== 'string' || !Password.trim() ||
     typeof Email !== 'string' || !Email.trim() ||
     typeof Statut !== 'string' || !Statut.trim()
   ) {
-    return res.status(400).send('Nom, Password, Email, and Statut are required and must be non-empty strings');
+    return res.status(400).send('Nom, Email, and Statut are required and must be non-empty strings');
   }
   try {
-    let hashedPassword = Password;
-    if (Password) {
-      hashedPassword = await bcrypt.hash(Password, 10);
+    // If Password is provided and not empty, update it, else leave unchanged
+    let query, params;
+    if (typeof Password === 'string' && Password.trim() && Password !== 'dummy') {
+      const hashedPassword = await bcrypt.hash(Password, 10);
+      if (typeof Biographie === 'string') {
+        query = 'UPDATE Utilisateur SET Nom = ?, Password = ?, Email = ?, Statut = ?, Biographie = ? WHERE UserID = ?';
+        params = [Nom, hashedPassword, Email, Statut, Biographie, userId];
+      } else {
+        query = 'UPDATE Utilisateur SET Nom = ?, Password = ?, Email = ?, Statut = ? WHERE UserID = ?';
+        params = [Nom, hashedPassword, Email, Statut, userId];
+      }
+    } else {
+      if (typeof Biographie === 'string') {
+        query = 'UPDATE Utilisateur SET Nom = ?, Email = ?, Statut = ?, Biographie = ? WHERE UserID = ?';
+        params = [Nom, Email, Statut, Biographie, userId];
+      } else {
+        query = 'UPDATE Utilisateur SET Nom = ?, Email = ?, Statut = ? WHERE UserID = ?';
+        params = [Nom, Email, Statut, userId];
+      }
     }
-    const query = 'UPDATE Utilisateur SET Nom = ?, Password = ?, Email = ?, Statut = ? WHERE UserID = ?';
-    db.query(query, [Nom, hashedPassword, Email, Statut, userId], (err, results) => {
+    db.query(query, params, (err, results) => {
       if (err) {
         if (err.code === 'ER_DUP_ENTRY') {
           return res.status(409).send('Email already exists');
@@ -492,6 +552,199 @@ app.delete('/connexions/:connexionId', (req, res) => {
       return res.status(404).send('Connexion not found');
     }
     res.json({ message: 'Connexion deleted successfully' });
+  });
+});
+
+// Get all connections for a user (with other user's info)
+app.get('/users/:userId/connections', (req, res) => {
+  const userId = parseInt(req.params.userId, 10);
+  if (!userId || userId < 1) {
+    return res.status(400).send('Invalid userId');
+  }
+  // On récupère l'autre utilisateur de chaque connexion
+  const query = `
+    SELECT c.ConnexionID, u.UserID, u.Nom, u.Email
+    FROM Connexion c
+    JOIN Utilisateur u ON (u.UserID = IF(c.UserID_0 = ?, c.UserID_1, c.UserID_0))
+    WHERE c.UserID_0 = ? OR c.UserID_1 = ?
+    ORDER BY c.date_connexion DESC
+  `;
+  db.query(query, [userId, userId, userId], (err, results) => {
+    if (err) {
+      console.error('Error fetching connections:', err);
+      return res.status(500).send('Error fetching connections');
+    }
+    res.json(results);
+  });
+});
+
+// Get user by email (for connection creation)
+app.get('/users-by-email/:email', (req, res) => {
+  const email = req.params.email;
+  if (!email) {
+    return res.status(400).send('Email required');
+  }
+  const query = 'SELECT UserID, Nom, Email FROM Utilisateur WHERE Email = ?';
+  db.query(query, [email], (err, results) => {
+    if (err) {
+      console.error('Error fetching user by email:', err);
+      return res.status(500).send('Error fetching user');
+    }
+    if (results.length === 0) {
+      return res.status(404).send('User not found');
+    }
+    res.json(results[0]);
+  });
+});
+
+// Example admin-only route: Get all users
+app.get('/admin/users', isAdmin, (req, res) => {
+  db.query('SELECT UserID, Nom, Email, Statut FROM Utilisateur', (err, results) => {
+    if (err) {
+      return res.status(500).send('Error fetching users');
+    }
+    res.json(results);
+  });
+});
+
+// --- ConnectionRequest ---
+// Table: ConnectionRequest (RequestID, SenderID, ReceiverID, status, date_request)
+// status: 'pending', 'accepted', 'rejected'
+
+// Envoyer une demande de connexion
+app.post('/connection-requests', (req, res) => {
+  const { senderId, receiverId } = req.body;
+  if (!Number.isInteger(senderId) || !Number.isInteger(receiverId) || senderId < 1 || receiverId < 1 || senderId === receiverId) {
+    return res.status(400).send('Invalid senderId or receiverId');
+  }
+
+  // Vérifie si une demande existe déjà
+  const checkRequest = `
+    SELECT 1 FROM ConnectionRequest 
+    WHERE ((SenderID = ? AND ReceiverID = ?) OR (SenderID = ? AND ReceiverID = ?))
+      AND status = 'pending'
+    LIMIT 1
+  `;
+  db.query(checkRequest, [senderId, receiverId, receiverId, senderId], (err, reqResults) => {
+    if (err) return res.status(500).send('Error checking existing requests');
+    if (reqResults.length > 0) return res.status(409).send('Request already exists');
+
+    // Vérifie si déjà connectés
+    const checkConn = `
+      SELECT 1 FROM Connexion 
+      WHERE (UserID_0 = ? AND UserID_1 = ?) OR (UserID_0 = ? AND UserID_1 = ?)
+      LIMIT 1
+    `;
+    db.query(checkConn, [senderId, receiverId, receiverId, senderId], (err2, connResults) => {
+      if (err2) return res.status(500).send('Error checking existing connections');
+      if (connResults.length > 0) return res.status(409).send('Connection already exists');
+
+      // Crée la demande
+      const insertQuery = 'INSERT INTO ConnectionRequest (SenderID, ReceiverID, status) VALUES (?, ?, "pending")';
+      db.query(insertQuery, [senderId, receiverId], (err3, results3) => {
+        if (err3) return res.status(500).send('Error creating connection request');
+        res.status(201).json({ message: 'Connection request sent', requestId: results3.insertId });
+      });
+    });
+  });
+});
+
+// Voir les demandes reçues et envoyées
+app.get('/users/:userId/connection-requests', (req, res) => {
+  const userId = parseInt(req.params.userId, 10);
+  if (!userId || userId < 1) return res.status(400).send('Invalid userId');
+  const query = `
+    SELECT cr.RequestID, cr.SenderID, cr.ReceiverID, cr.status, cr.date_request, 
+           u1.Nom as SenderNom, u1.Email as SenderEmail, 
+           u2.Nom as ReceiverNom, u2.Email as ReceiverEmail
+    FROM ConnectionRequest cr
+    JOIN Utilisateur u1 ON cr.SenderID = u1.UserID
+    JOIN Utilisateur u2 ON cr.ReceiverID = u2.UserID
+    WHERE cr.SenderID = ? OR cr.ReceiverID = ?
+    ORDER BY cr.date_request DESC
+  `;
+  db.query(query, [userId, userId], (err, results) => {
+    if (err) return res.status(500).send('Error fetching requests');
+    res.json(results);
+  });
+});
+
+// Accepter une demande de connexion
+app.post('/connection-requests/:requestId/accept', (req, res) => {
+  const requestId = parseInt(req.params.requestId, 10);
+  if (!requestId || requestId < 1) return res.status(400).send('Invalid requestId');
+  // Récupère la demande
+  db.query('SELECT * FROM ConnectionRequest WHERE RequestID = ?', [requestId], (err, results) => {
+    if (err) return res.status(500).send('Error fetching request');
+    if (results.length === 0) return res.status(404).send('Request not found');
+    const reqRow = results[0];
+    if (reqRow.status !== 'pending') return res.status(400).send('Request already handled');
+    // Crée la connexion
+    db.query('INSERT INTO Connexion (UserID_0, UserID_1) VALUES (?, ?)', [reqRow.SenderID, reqRow.ReceiverID], (err2) => {
+      if (err2) return res.status(500).send('Error creating connection');
+      // Met à jour la demande
+      db.query('UPDATE ConnectionRequest SET status = "accepted" WHERE RequestID = ?', [requestId], (err3) => {
+        if (err3) return res.status(500).send('Error updating request');
+        res.json({ message: 'Connection accepted' });
+      });
+    });
+  });
+});
+
+// Refuser une demande de connexion
+app.delete('/connection-requests/:requestId', (req, res) => {
+  const requestId = parseInt(req.params.requestId, 10);
+  if (!requestId || requestId < 1) return res.status(400).send('Invalid requestId');
+  db.query('UPDATE ConnectionRequest SET status = "rejected" WHERE RequestID = ?', [requestId], (err, results) => {
+    if (err) return res.status(500).send('Error rejecting request');
+    res.json({ message: 'Connection request rejected' });
+  });
+});
+
+// Get all users with statut "ecole"
+app.get('/schools', (req, res) => {
+  db.query('SELECT UserID, Nom, Email, Biographie FROM Utilisateur WHERE Statut = "ecole"', (err, results) => {
+    if (err) {
+      console.error('Error fetching schools:', err);
+      return res.status(500).send('Error fetching schools');
+    }
+    res.json(results);
+  });
+});
+
+// Public route: get all admin users (for frontend "contact admin" button)
+app.get('/users-admin', (req, res) => {
+  db.query('SELECT UserID, Nom, Email, Statut FROM Utilisateur WHERE Statut = "admin"', (err, results) => {
+    if (err) {
+      console.error('Error fetching admins:', err);
+      return res.status(500).send('Error fetching admins');
+    }
+    res.json(results);
+  });
+});
+
+// Get all users with whom the user has exchanged messages (either sent or received)
+app.get('/users/:userId/conversers', (req, res) => {
+  const userId = parseInt(req.params.userId, 10);
+  if (!userId || userId < 1) {
+    return res.status(400).send('Invalid userId');
+  }
+  const query = `
+    SELECT DISTINCT u.UserID, u.Nom, u.Email
+    FROM Utilisateur u
+    WHERE u.UserID != ?
+      AND (
+        u.UserID IN (SELECT ReceiverID FROM Message WHERE SenderID = ?)
+        OR
+        u.UserID IN (SELECT SenderID FROM Message WHERE ReceiverID = ?)
+      )
+  `;
+  db.query(query, [userId, userId, userId], (err, results) => {
+    if (err) {
+      console.error('Error fetching conversers:', err);
+      return res.status(500).send('Error fetching conversers');
+    }
+    res.json(results);
   });
 });
 

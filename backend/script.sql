@@ -7,6 +7,7 @@ DROP TABLE IF EXISTS Note;
 DROP TABLE IF EXISTS Commentaire;
 DROP TABLE IF EXISTS Publication;
 DROP TABLE IF EXISTS Utilisateur;
+DROP TABLE IF EXISTS ConnectionRequest;
 
 CREATE TABLE Utilisateur(
    UserID INT AUTO_INCREMENT,
@@ -14,6 +15,9 @@ CREATE TABLE Utilisateur(
    Password CHAR(64) NOT NULL,
    Email VARCHAR(50) NOT NULL,
    Statut VARCHAR(50) NOT NULL,
+   Biographie TEXT;
+   ProfileImagePath VARCHAR(255),
+   BannerImagePath VARCHAR(255),
    PRIMARY KEY(UserID),
    UNIQUE(Email)
 );
@@ -21,8 +25,8 @@ CREATE TABLE Utilisateur(
 CREATE TABLE Publication(
    PostID INT AUTO_INCREMENT,
    Titre VARCHAR(50) NOT NULL,
-
    Contenu TEXT NOT NULL,
+   PostImagePath VARCHAR(255),
    date_post DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
    UserID INT NOT NULL,
    PRIMARY KEY(PostID),
@@ -70,6 +74,17 @@ CREATE TABLE Connexion(
    PRIMARY KEY(ConnexionID),
    FOREIGN KEY(UserID_0) REFERENCES Utilisateur(UserID) ON DELETE CASCADE,
    FOREIGN KEY(UserID_1) REFERENCES Utilisateur(UserID) ON DELETE CASCADE
+);
+
+CREATE TABLE ConnectionRequest (
+  RequestID INT AUTO_INCREMENT,
+  SenderID INT NOT NULL,
+  ReceiverID INT NOT NULL,
+  status ENUM('pending','accepted','rejected') NOT NULL DEFAULT 'pending',
+  date_request DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY(RequestID),
+  FOREIGN KEY(SenderID) REFERENCES Utilisateur(UserID) ON DELETE CASCADE,
+  FOREIGN KEY(ReceiverID) REFERENCES Utilisateur(UserID) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_date_post ON Publication(date_post);

@@ -12,7 +12,6 @@ import PersonAddAltIcon from '@mui/icons-material/PersonAddAlt';
 function Register() {
   const [nom, setNom] = useState('');
   const [email, setEmail] = useState('');
-  const [statut, setStatut] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -25,7 +24,7 @@ function Register() {
         Nom: nom,
         Email: email,
         Password: password,
-        Statut: statut
+        Statut: 'etudiant'
       });
       navigate('/login');
     } catch (err) {
@@ -70,14 +69,6 @@ function Register() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               autoComplete="email"
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              label="Statut"
-              value={statut}
-              onChange={e => setStatut(e.target.value)}
             />
             <TextField
               margin="normal"
