@@ -11,6 +11,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import { useNavigate } from 'react-router-dom';
+import Autocomplete from '@mui/material/Autocomplete';
 
 function Connections() {
   const [connections, setConnections] = useState([]);
@@ -19,6 +20,9 @@ function Connections() {
   const [error, setError] = useState('');
   const [addEmail, setAddEmail] = useState('');
   const [addLoading, setAddLoading] = useState(false);
+  const [userOptions, setUserOptions] = useState([]);
+  const [userSearch, setUserSearch] = useState('');
+  const [selectedUser, setSelectedUser] = useState(null);
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const navigate = useNavigate();
 
@@ -51,25 +55,38 @@ function Connections() {
     // eslint-disable-next-line
   }, [user.UserID]);
 
+  // Fetch all users for autocomplete (except self)
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        // Use new /users route instead of /admin/users
+        const res = await axios.get('/users');
+        setUserOptions(res.data.filter(u => u.UserID !== user.UserID));
+      } catch {
+        setUserOptions([]);
+      }
+    };
+    if (user.UserID) fetchUsers();
+    // eslint-disable-next-line
+  }, [user.UserID]);
+
   const handleAddConnection = async (e) => {
     e.preventDefault();
     setError('');
     setAddLoading(true);
     try {
-      // Cherche l'utilisateur par email
-      const res = await axios.get(`/users-by-email/${encodeURIComponent(addEmail)}`);
-      const otherUser = res.data;
-      if (!otherUser || !otherUser.UserID) {
-        setError("Utilisateur non trouvé");
+      if (!selectedUser || !selectedUser.UserID) {
+        setError("Veuillez sélectionner un utilisateur");
         setAddLoading(false);
         return;
       }
       // Envoie une demande de connexion
       await axios.post('/connection-requests', {
         senderId: user.UserID,
-        receiverId: otherUser.UserID
+        receiverId: selectedUser.UserID
       });
-      setAddEmail('');
+      setSelectedUser(null);
+      setUserSearch('');
       fetchRequests();
     } catch (err) {
       setError(err.response?.data || "Impossible d'envoyer la demande");
@@ -105,36 +122,57 @@ function Connections() {
   );
 
   return (
-    <Box sx={{ maxWidth: 600, mx: 'auto', mt: 4 }}>
-      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h4" sx={{ mb: 2 }}>
+    <Box sx={{ maxWidth: 900, mx: 'auto', mt: 2, px: { xs: 1, sm: 2, md: 4 } }}>
+      <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
+        <Typography variant="h4" sx={{ mb: 1 }}>
           Mes connexions
         </Typography>
-        <Box component="form" onSubmit={handleAddConnection} sx={{ display: 'flex', gap: 2, mb: 2 }}>
-          <TextField
-            label="Email de l'utilisateur à ajouter"
-            value={addEmail}
-            onChange={e => setAddEmail(e.target.value)}
-            size="small"
-            variant="outlined"
-            fullWidth
-            disabled={addLoading}
+        <Box component="form" onSubmit={handleAddConnection} sx={{ display: 'flex', gap: 1, mb: 1 }}>
+          <Autocomplete
+            options={userOptions}
+            getOptionLabel={option => `${option.Nom} (${option.Email})`}
+            value={selectedUser}
+            onChange={(_, value) => setSelectedUser(value)}
+            inputValue={userSearch}
+            onInputChange={(_, value) => setUserSearch(value)}
+            renderOption={(props, option) => (
+              <li {...props}>
+                <Avatar
+                  src={option.ProfileImagePath ? option.ProfileImagePath : undefined}
+                  sx={{ bgcolor: 'primary.main', width: 28, height: 28, mr: 1 }}
+                >
+                  {!option.ProfileImagePath && (option.Nom ? option.Nom[0].toUpperCase() : '?')}
+                </Avatar>
+                {option.Nom} ({option.Email})
+              </li>
+            )}
+            renderInput={params => (
+              <TextField
+                {...params}
+                label="Rechercher un utilisateur"
+                variant="outlined"
+                size="small"
+                fullWidth
+                disabled={addLoading}
+              />
+            )}
+            sx={{ flex: 1 }}
           />
           <Button
             type="submit"
             variant="contained"
-            disabled={!addEmail.trim() || addLoading}
+            disabled={!selectedUser || addLoading}
           >
             {addLoading ? "Envoi..." : "Ajouter"}
           </Button>
         </Box>
         {error && (
-          <Typography color="error" sx={{ mb: 2 }}>
+          <Typography color="error" sx={{ mb: 1 }}>
             {error}
           </Typography>
         )}
 
-        <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>Demandes reçues</Typography>
+        <Typography variant="h6" sx={{ mt: 1, mb: 1 }}>Demandes reçues</Typography>
         {receivedRequests.length === 0 ? (
           <Typography>Aucune demande reçue.</Typography>
         ) : (
@@ -151,8 +189,11 @@ function Connections() {
                 </>
               }>
                 <ListItemAvatar>
-                  <Avatar sx={{ bgcolor: 'primary.main' }}>
-                    {req.SenderNom ? req.SenderNom[0].toUpperCase() : '?'}
+                  <Avatar
+                    src={req.SenderProfileImagePath ? req.SenderProfileImagePath : undefined}
+                    sx={{ bgcolor: 'primary.main' }}
+                  >
+                    {!req.SenderProfileImagePath && (req.SenderNom ? req.SenderNom[0].toUpperCase() : '?')}
                   </Avatar>
                 </ListItemAvatar>
                 <ListItemText
@@ -164,7 +205,7 @@ function Connections() {
           </List>
         )}
 
-        <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>Demandes envoyées</Typography>
+        <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>Demandes envoyées</Typography>
         {sentRequests.length === 0 ? (
           <Typography>Aucune demande envoyée.</Typography>
         ) : (
@@ -172,8 +213,11 @@ function Connections() {
             {sentRequests.map(req => (
               <ListItem key={req.RequestID}>
                 <ListItemAvatar>
-                  <Avatar sx={{ bgcolor: 'primary.main' }}>
-                    {req.ReceiverNom ? req.ReceiverNom[0].toUpperCase() : '?'}
+                  <Avatar
+                    src={req.ReceiverProfileImagePath ? req.ReceiverProfileImagePath : undefined}
+                    sx={{ bgcolor: 'primary.main' }}
+                  >
+                    {!req.ReceiverProfileImagePath && (req.ReceiverNom ? req.ReceiverNom[0].toUpperCase() : '?')}
                   </Avatar>
                 </ListItemAvatar>
                 <ListItemText
@@ -186,7 +230,7 @@ function Connections() {
           </List>
         )}
 
-        <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>Connexions</Typography>
+        <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>Connexions</Typography>
         {loading ? (
           <Typography>Chargement...</Typography>
         ) : connections.length === 0 ? (
@@ -206,8 +250,11 @@ function Connections() {
                 }
               >
                 <ListItemAvatar>
-                  <Avatar sx={{ bgcolor: 'primary.main' }}>
-                    {conn.Nom ? conn.Nom[0].toUpperCase() : '?'}
+                  <Avatar
+                    src={conn.ProfileImagePath ? conn.ProfileImagePath : undefined}
+                    sx={{ bgcolor: 'primary.main' }}
+                  >
+                    {!conn.ProfileImagePath && (conn.Nom ? conn.Nom[0].toUpperCase() : '?')}
                   </Avatar>
                 </ListItemAvatar>
                 <ListItemText

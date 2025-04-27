@@ -39,10 +39,12 @@ function Register() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'transparent'
+        background: 'transparent',
+        mt: -4,
+        px: { xs: 1, sm: 2, md: 4 }
       }}
     >
-      <Paper elevation={6} sx={{ p: 4, minWidth: 340, borderRadius: 2 }}>
+      <Paper elevation={6} sx={{ p: 3, minWidth: 320, borderRadius: 2 }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <Avatar sx={{ m: 1, bgcolor: 'secondary.main' }}>
             <PersonAddAltIcon />

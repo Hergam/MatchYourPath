@@ -62,8 +62,8 @@ function Home() {
   };
 
   return (
-    <Box sx={{ maxWidth: 600, mx: 'auto', mt: 4 }}>
-      <Paper elevation={3} sx={{ p: 3, mb: 3, borderRadius: 2, background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)' }}>
+    <Box sx={{ maxWidth: 900, mx: 'auto', mt: 2, px: { xs: 1, sm: 2, md: 4 } }}>
+      <Paper elevation={3} sx={{ p: 2, mb: 2, borderRadius: 2, background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)' }}>
         <Typography variant="h4" sx={{ color: '#fff', fontWeight: 700 }}>
           Welcome to MatchYourPath!
         </Typography>
@@ -71,16 +71,17 @@ function Home() {
           Connect, share, and discover new opportunities with your peers.
         </Typography>
       </Paper>
-      <Card sx={{ mb: 3 }}>
+      <Card sx={{ mb: 2 }}>
         <CardContent>
-          <Box component="form" onSubmit={handlePost} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box component="form" onSubmit={handlePost} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Avatar
-                sx={{ bgcolor: 'primary.main', mr: 2, cursor: 'pointer' }}
+                src={user.ProfileImagePath ? user.ProfileImagePath : undefined}
+                sx={{ bgcolor: 'primary.main', mr: 1, cursor: 'pointer' }}
                 onClick={() => navigate('/profile')}
                 title="Go to profile"
               >
-                {user.Nom ? user.Nom[0].toUpperCase() : 'Y'}
+                {!user.ProfileImagePath && (user.Nom ? user.Nom[0].toUpperCase() : 'Y')}
               </Avatar>
               <TextField
                 fullWidth
@@ -89,7 +90,7 @@ function Home() {
                 value={newTitle}
                 onChange={e => setNewTitle(e.target.value)}
                 size="small"
-                sx={{ mr: 2 }}
+                sx={{ mr: 1 }}
                 disabled={posting}
               />
             </Box>
@@ -108,30 +109,34 @@ function Home() {
               type="submit"
               variant="contained"
               disabled={!newPost.trim() || !newTitle.trim() || posting}
+              sx={{ mt: 1 }}
             >
               {posting ? 'Posting...' : 'Post'}
             </Button>
             {error && (
-              <Typography color="error" sx={{ mt: 2, textAlign: 'center' }}>
+              <Typography color="error" sx={{ mt: 1, textAlign: 'center' }}>
                 {error}
               </Typography>
             )}
           </Box>
         </CardContent>
       </Card>
-      <Divider sx={{ mb: 2 }} />
+      <Divider sx={{ mb: 1 }} />
       <Box>
         {loading ? (
-          <Typography sx={{ textAlign: 'center', mt: 4 }}>Loading...</Typography>
+          <Typography sx={{ textAlign: 'center', mt: 2 }}>Loading...</Typography>
         ) : posts.length === 0 ? (
-          <Typography sx={{ textAlign: 'center', mt: 4 }}>No posts yet.</Typography>
+          <Typography sx={{ textAlign: 'center', mt: 2 }}>No posts yet.</Typography>
         ) : (
           posts.map(post => (
-            <Card key={post.PostID} sx={{ mb: 2 }}>
+            <Card key={post.PostID} sx={{ mb: 1 }}>
               <CardHeader
                 avatar={
-                  <Avatar sx={{ bgcolor: 'secondary.main' }}>
-                    {post.Nom ? post.Nom[0].toUpperCase() : '?'}
+                  <Avatar
+                    src={post.ProfileImagePath ? post.ProfileImagePath : undefined}
+                    sx={{ bgcolor: 'secondary.main' }}
+                  >
+                    {!post.ProfileImagePath && (post.Nom ? post.Nom[0].toUpperCase() : '?')}
                   </Avatar>
                 }
                 title={post.Nom ? post.Nom : <span style={{color:'#888'}}>Unknown</span>}

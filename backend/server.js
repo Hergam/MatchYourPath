@@ -5,6 +5,7 @@ require('dotenv').config();
 const { jsonParser, isAdmin } = require('./middleware'); // <-- import middleware
 const path = require('path');
 const multer = require('multer');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -13,12 +14,16 @@ const PORT = process.env.PORT || 5000;
 app.use(jsonParser); // <-- use imported middleware
 
 // Serve static files from uploads folder
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+const uploadsPath = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsPath));
 
 // Multer config for image uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../uploads'));
+    cb(null, uploadsPath);
   },
   filename: (req, file, cb) => {
     // Use timestamp + original name for uniqueness
@@ -134,7 +139,8 @@ app.get('/users/:userId', (req, res) => {
   if (!userId || userId < 1) {
     return res.status(400).send('Invalid userId');
   }
-  const query = 'SELECT UserID, Nom, Email, Statut FROM Utilisateur WHERE UserID = ?';
+  // Include ProfileImagePath in the select
+  const query = 'SELECT UserID, Nom, Email, Statut, Biographie, ProfileImagePath FROM Utilisateur WHERE UserID = ?';
   db.query(query, [userId], (err, results) => {
     if (err) {
       console.error('Error fetching user:', err);
@@ -149,7 +155,7 @@ app.get('/users/:userId', (req, res) => {
 
 app.put('/users/:userId', async (req, res) => {
   const userId = parseInt(req.params.userId, 10);
-  const { Nom, Password, Email, Statut, Biographie } = req.body;
+  const { Nom, Password, Email, Statut, Biographie, ProfileImagePath, BannerImagePath } = req.body;
   if (!userId || userId < 1) {
     return res.status(400).send('Invalid userId');
   }
@@ -161,26 +167,29 @@ app.put('/users/:userId', async (req, res) => {
     return res.status(400).send('Nom, Email, and Statut are required and must be non-empty strings');
   }
   try {
-    // If Password is provided and not empty, update it, else leave unchanged
     let query, params;
+    const fields = ['Nom = ?', 'Email = ?', 'Statut = ?'];
+    params = [Nom, Email, Statut];
+    if (typeof Biographie === 'string') {
+      fields.push('Biographie = ?');
+      params.push(Biographie);
+    }
+    if (typeof ProfileImagePath === 'string') {
+      fields.push('ProfileImagePath = ?');
+      params.push(ProfileImagePath);
+    }
+    if (typeof BannerImagePath === 'string') {
+      fields.push('BannerImagePath = ?');
+      params.push(BannerImagePath);
+    }
     if (typeof Password === 'string' && Password.trim() && Password !== 'dummy') {
       const hashedPassword = await bcrypt.hash(Password, 10);
-      if (typeof Biographie === 'string') {
-        query = 'UPDATE Utilisateur SET Nom = ?, Password = ?, Email = ?, Statut = ?, Biographie = ? WHERE UserID = ?';
-        params = [Nom, hashedPassword, Email, Statut, Biographie, userId];
-      } else {
-        query = 'UPDATE Utilisateur SET Nom = ?, Password = ?, Email = ?, Statut = ? WHERE UserID = ?';
-        params = [Nom, hashedPassword, Email, Statut, userId];
-      }
-    } else {
-      if (typeof Biographie === 'string') {
-        query = 'UPDATE Utilisateur SET Nom = ?, Email = ?, Statut = ?, Biographie = ? WHERE UserID = ?';
-        params = [Nom, Email, Statut, Biographie, userId];
-      } else {
-        query = 'UPDATE Utilisateur SET Nom = ?, Email = ?, Statut = ? WHERE UserID = ?';
-        params = [Nom, Email, Statut, userId];
-      }
+      fields.push('Password = ?');
+      params.push(hashedPassword);
     }
+    query = `UPDATE Utilisateur SET ${fields.join(', ')} WHERE UserID = ?`;
+    params.push(userId);
+
     db.query(query, params, (err, results) => {
       if (err) {
         if (err.code === 'ER_DUP_ENTRY') {
@@ -240,7 +249,7 @@ app.post('/publications', (req, res) => {
 // Get all publications
 app.get('/publications', (req, res) => {
   const query = `
-    SELECT p.*, u.Nom
+    SELECT p.*, u.Nom, u.ProfileImagePath
     FROM Publication p
     LEFT JOIN Utilisateur u ON p.UserID = u.UserID
     ORDER BY p.date_post DESC
@@ -561,9 +570,9 @@ app.get('/users/:userId/connections', (req, res) => {
   if (!userId || userId < 1) {
     return res.status(400).send('Invalid userId');
   }
-  // On récupère l'autre utilisateur de chaque connexion
+  // Also fetch ProfileImagePath
   const query = `
-    SELECT c.ConnexionID, u.UserID, u.Nom, u.Email
+    SELECT c.ConnexionID, u.UserID, u.Nom, u.Email, u.ProfileImagePath
     FROM Connexion c
     JOIN Utilisateur u ON (u.UserID = IF(c.UserID_0 = ?, c.UserID_1, c.UserID_0))
     WHERE c.UserID_0 = ? OR c.UserID_1 = ?
@@ -597,9 +606,10 @@ app.get('/users-by-email/:email', (req, res) => {
   });
 });
 
-// Example admin-only route: Get all users
-app.get('/admin/users', isAdmin, (req, res) => {
-  db.query('SELECT UserID, Nom, Email, Statut FROM Utilisateur', (err, results) => {
+// Example public route: Get all users (was /admin/users, now /users)
+app.get('/users', (req, res) => {
+  // Include ProfileImagePath in the select
+  db.query('SELECT UserID, Nom, Email, Statut, ProfileImagePath FROM Utilisateur', (err, results) => {
     if (err) {
       return res.status(500).send('Error fetching users');
     }
@@ -655,8 +665,8 @@ app.get('/users/:userId/connection-requests', (req, res) => {
   if (!userId || userId < 1) return res.status(400).send('Invalid userId');
   const query = `
     SELECT cr.RequestID, cr.SenderID, cr.ReceiverID, cr.status, cr.date_request, 
-           u1.Nom as SenderNom, u1.Email as SenderEmail, 
-           u2.Nom as ReceiverNom, u2.Email as ReceiverEmail
+           u1.Nom as SenderNom, u1.Email as SenderEmail, u1.ProfileImagePath as SenderProfileImagePath,
+           u2.Nom as ReceiverNom, u2.Email as ReceiverEmail, u2.ProfileImagePath as ReceiverProfileImagePath
     FROM ConnectionRequest cr
     JOIN Utilisateur u1 ON cr.SenderID = u1.UserID
     JOIN Utilisateur u2 ON cr.ReceiverID = u2.UserID
@@ -703,7 +713,7 @@ app.delete('/connection-requests/:requestId', (req, res) => {
 
 // Get all users with statut "ecole"
 app.get('/schools', (req, res) => {
-  db.query('SELECT UserID, Nom, Email, Biographie FROM Utilisateur WHERE Statut = "ecole"', (err, results) => {
+  db.query('SELECT UserID, Nom, Email, Biographie, ProfileImagePath, BannerImagePath FROM Utilisateur WHERE Statut = "ecole"', (err, results) => {
     if (err) {
       console.error('Error fetching schools:', err);
       return res.status(500).send('Error fetching schools');
@@ -729,8 +739,9 @@ app.get('/users/:userId/conversers', (req, res) => {
   if (!userId || userId < 1) {
     return res.status(400).send('Invalid userId');
   }
+  // Also fetch ProfileImagePath
   const query = `
-    SELECT DISTINCT u.UserID, u.Nom, u.Email
+    SELECT DISTINCT u.UserID, u.Nom, u.Email, u.ProfileImagePath
     FROM Utilisateur u
     WHERE u.UserID != ?
       AND (

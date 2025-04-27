@@ -12,6 +12,7 @@ import TableRow from '@mui/material/TableRow';
 import Button from '@mui/material/Button';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
+import Avatar from '@mui/material/Avatar';
 
 function Admin() {
   const [users, setUsers] = useState([]);
@@ -24,7 +25,8 @@ function Admin() {
     setLoading(true);
     setError('');
     try {
-      const res = await axios.get('/admin/users', {
+      // Use new /users route instead of /admin/users
+      const res = await axios.get('/users', {
         headers: { 'x-user-id': adminUser.UserID }
       });
       setUsers(res.data);
@@ -83,9 +85,9 @@ function Admin() {
   };
 
   return (
-    <Box sx={{ maxWidth: 800, mx: 'auto', mt: 4 }}>
-      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h4" sx={{ mb: 2 }}>
+    <Box sx={{ maxWidth: 1100, mx: 'auto', mt: 2, px: { xs: 1, sm: 2, md: 4 } }}>
+      <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
+        <Typography variant="h4" sx={{ mb: 1 }}>
           Admin User Management
         </Typography>
         {error && (
@@ -101,6 +103,7 @@ function Admin() {
               <TableHead>
                 <TableRow>
                   <TableCell>UserID</TableCell>
+                  <TableCell>Profile</TableCell>
                   <TableCell>Name</TableCell>
                   <TableCell>Email</TableCell>
                   <TableCell>Status</TableCell>
@@ -111,6 +114,14 @@ function Admin() {
                 {users.map(user => (
                   <TableRow key={user.UserID}>
                     <TableCell>{user.UserID}</TableCell>
+                    <TableCell>
+                      <Avatar
+                        src={user.ProfileImagePath ? user.ProfileImagePath : undefined}
+                        sx={{ bgcolor: 'primary.main', width: 36, height: 36 }}
+                      >
+                        {!user.ProfileImagePath && (user.Nom ? user.Nom[0].toUpperCase() : 'U')}
+                      </Avatar>
+                    </TableCell>
                     <TableCell>{user.Nom}</TableCell>
                     <TableCell>{user.Email}</TableCell>
                     <TableCell>

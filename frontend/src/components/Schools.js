@@ -40,15 +40,15 @@ function Schools() {
 
   const handleMessage = () => {
     if (selectedSchool) {
-      // Go to messages page and pass school UserID as state
-      navigate('/messages', { state: { user: selectedSchool } });
+      // Redirect to /messages/<schoolUserID>
+      navigate(`/messages/${selectedSchool.UserID}`);
     }
   };
 
   return (
-    <Box sx={{ maxWidth: 600, mx: 'auto', mt: 4 }}>
-      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h4" sx={{ mb: 2 }}>
+    <Box sx={{ maxWidth: 900, mx: 'auto', mt: 2, px: { xs: 1, sm: 2, md: 4 } }}>
+      <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
+        <Typography variant="h4" sx={{ mb: 1 }}>
           Écoles
         </Typography>
         {error && (
@@ -62,43 +62,65 @@ function Schools() {
           <Typography>Aucune école trouvée.</Typography>
         ) : (
           <List>
-            {schools.map(school => (
-              <ListItem
-                key={school.UserID}
-                alignItems="flex-start"
-                button
-                selected={selectedSchool && selectedSchool.UserID === school.UserID}
-                onClick={() => handleSelect(school)}
-                sx={{
-                  bgcolor: selectedSchool && selectedSchool.UserID === school.UserID ? 'action.selected' : undefined,
-                  borderRadius: 1,
-                  mb: 1,
-                  cursor: 'pointer'
-                }}
-              >
-                <ListItemAvatar>
-                  <Avatar sx={{ bgcolor: 'primary.main' }}>
-                    {school.Nom ? school.Nom[0].toUpperCase() : '?'}
-                  </Avatar>
-                </ListItemAvatar>
-                <ListItemText
-                  primary={
-                    <Typography variant="h6">{school.Nom}</Typography>
-                  }
-                  secondary={
-                    <>
-                      <Typography variant="body2" color="text.secondary">
-                        {school.Email}
-                      </Typography>
-                      <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-line' }}>
-                        {school.Biographie
-                          ? school.Biographie
-                          : <span style={{ color: '#888' }}>Aucune biographie</span>}
-                      </Typography>
-                    </>
-                  }
-                />
-              </ListItem>
+            {schools.map((school, idx) => (
+              <React.Fragment key={school.UserID}>
+                <ListItem
+                  alignItems="flex-start"
+                  button
+                  selected={selectedSchool && selectedSchool.UserID === school.UserID}
+                  onClick={() => handleSelect(school)}
+                  sx={{
+                    bgcolor: selectedSchool && selectedSchool.UserID === school.UserID ? 'action.selected' : undefined,
+                    borderRadius: 1,
+                    mb: 1,
+                    cursor: 'pointer',
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                    boxShadow: 2,
+                    border: '1px solid #e0e0e0',
+                    transition: 'box-shadow 0.2s, border 0.2s',
+                  }}
+                >
+                  {school.BannerImagePath && (
+                    <Box
+                      sx={{
+                        width: '100%',
+                        height: 180, // Increased height for the banner
+                        background: `url(${school.BannerImagePath}) center/cover no-repeat`,
+                        borderRadius: 1,
+                        mb: 1
+                      }}
+                    />
+                  )}
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <ListItemAvatar>
+                      <Avatar
+                        src={school.ProfileImagePath ? school.ProfileImagePath : undefined}
+                        sx={{ bgcolor: 'primary.main' }}
+                      >
+                        {!school.ProfileImagePath && (school.Nom ? school.Nom[0].toUpperCase() : '?')}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Typography variant="h6">{school.Nom}</Typography>
+                      }
+                      secondary={
+                        <>
+                          <Typography variant="body2" color="text.secondary">
+                            {school.Email}
+                          </Typography>
+                          <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-line' }}>
+                            {school.Biographie
+                              ? school.Biographie
+                              : <span style={{ color: '#888' }}>Aucune biographie</span>}
+                          </Typography>
+                        </>
+                      }
+                    />
+                  </Box>
+                </ListItem>
+              </React.Fragment>
             ))}
           </List>
         )}

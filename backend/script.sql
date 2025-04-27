@@ -15,7 +15,7 @@ CREATE TABLE Utilisateur(
    Password CHAR(64) NOT NULL,
    Email VARCHAR(50) NOT NULL,
    Statut VARCHAR(50) NOT NULL,
-   Biographie TEXT;
+   Biographie TEXT,
    ProfileImagePath VARCHAR(255),
    BannerImagePath VARCHAR(255),
    PRIMARY KEY(UserID),

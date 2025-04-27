@@ -109,8 +109,11 @@ function App() {
               to="/profile"
               sx={{ minWidth: 0, p: 0, mr: 2 }}
             >
-              <Avatar sx={{ bgcolor: 'secondary.main', width: 36, height: 36 }}>
-                {user?.Nom ? user.Nom[0].toUpperCase() : 'U'}
+              <Avatar
+                src={user?.ProfileImagePath ? user.ProfileImagePath : undefined}
+                sx={{ bgcolor: 'secondary.main', width: 36, height: 36 }}
+              >
+                {!user?.ProfileImagePath && (user?.Nom ? user.Nom[0].toUpperCase() : 'U')}
               </Avatar>
             </Button>
           )}
@@ -179,6 +182,22 @@ function App() {
         />
         <Route
           path="/messages"
+          element={
+            <RequireAuth>
+              <Messages />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/messages/:userId"
+          element={
+            <RequireAuth>
+              <Messages />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/messages/*"
           element={
             <RequireAuth>
               <Messages />
