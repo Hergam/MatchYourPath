@@ -90,3 +90,4 @@ CREATE TABLE ConnectionRequest (
 CREATE INDEX idx_date_post ON Publication(date_post);
 CREATE INDEX idx_date_message ON Message(date_message);
 CREATE INDEX idx_date_connexion ON Connexion(date_connexion);
+

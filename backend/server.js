@@ -404,13 +404,24 @@ app.post('/ecoles/:ecoleId/notes', (req, res) => {
   if (!Number.isInteger(valeur) || !Number.isInteger(AuthorID) || AuthorID < 1) {
     return res.status(400).send('valeur and valid AuthorID are required');
   }
-  const query = 'INSERT INTO Note (valeur, commentaire, AuthorID, EcoleID) VALUES (?, ?, ?, ?)';
-  db.query(query, [valeur, commentaire || null, AuthorID, ecoleId], (err, results) => {
+  // Check if user already rated this school
+  const checkQuery = 'SELECT noteID FROM Note WHERE AuthorID = ? AND EcoleID = ?';
+  db.query(checkQuery, [AuthorID, ecoleId], (err, results) => {
     if (err) {
-      console.error('Error creating note:', err);
-      return res.status(500).send('Error creating note');
+      console.error('Error checking note:', err);
+      return res.status(500).send('Error checking note');
     }
-    res.status(201).json({ message: 'Note created successfully', noteId: results.insertId });
+    if (results.length > 0) {
+      return res.status(409).send('Vous avez déjà donné un avis pour cette école.');
+    }
+    const query = 'INSERT INTO Note (valeur, commentaire, AuthorID, EcoleID) VALUES (?, ?, ?, ?)';
+    db.query(query, [valeur, commentaire || null, AuthorID, ecoleId], (err2, results2) => {
+      if (err2) {
+        console.error('Error creating note:', err2);
+        return res.status(500).send('Error creating note');
+      }
+      res.status(201).json({ message: 'Note created successfully', noteId: results2.insertId });
+    });
   });
 });
 // Get all notes for a given EcoleID
