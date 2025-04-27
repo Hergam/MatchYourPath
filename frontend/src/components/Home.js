@@ -63,11 +63,11 @@ function Home() {
 
   return (
     <Box sx={{ maxWidth: 900, mx: 'auto', mt: 2, px: { xs: 1, sm: 2, md: 4 } }}>
-      <Paper elevation={3} sx={{ p: 2, mb: 2, borderRadius: 2, background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)' }}>
+      <Paper elevation={3} sx={{ p: 2, mb: 2, borderRadius: 2, background: 'linear-gradient(90deg, #ff9800 0%, #ffb74d 100%)' }}>
         <Typography variant="h4" sx={{ color: '#fff', fontWeight: 700 }}>
           Welcome to MatchYourPath!
         </Typography>
-        <Typography variant="subtitle1" sx={{ color: '#e3f2fd', mt: 1 }}>
+        <Typography variant="subtitle1" sx={{ color: '#fffde7', mt: 1 }}>
           Connect, share, and discover new opportunities with your peers.
         </Typography>
       </Paper>

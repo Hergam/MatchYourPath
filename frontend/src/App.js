@@ -14,6 +14,19 @@ import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Avatar from '@mui/material/Avatar';
 import axios from 'axios';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+
+// Add orange theme
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#ff9800', // orange
+    },
+    secondary: {
+      main: '#ffb74d', // lighter orange
+    },
+  },
+});
 
 function RequireAuth({ children }) {
   const navigate = useNavigate();
@@ -99,121 +112,123 @@ function App() {
   }, []);
 
   return (
-    <Router>
-      <AppBar position="static" color="primary" sx={{ mb: 4 }}>
-        <Toolbar>
-          {isAuth && (
-            <Button
-              color="inherit"
-              component={Link}
-              to="/profile"
-              sx={{ minWidth: 0, p: 0, mr: 2 }}
-            >
-              <Avatar
-                src={user?.ProfileImagePath ? user.ProfileImagePath : undefined}
-                sx={{ bgcolor: 'secondary.main', width: 36, height: 36 }}
-              >
-                {!user?.ProfileImagePath && (user?.Nom ? user.Nom[0].toUpperCase() : 'U')}
-              </Avatar>
-            </Button>
-          )}
-          <Box sx={{ flexGrow: 1, display: 'inline-flex', alignItems: 'center' }}>
-            <Button color="inherit" component={Link} to="/" sx={{ fontWeight: 600 }}>
-              Home
-            </Button>
+    <ThemeProvider theme={theme}>
+      <Router>
+        <AppBar position="static" color="primary" sx={{ mb: 4 }}>
+          <Toolbar>
             {isAuth && (
-              <>
-                <Button color="inherit" component={Link} to="/connections" sx={{ fontWeight: 600 }}>
-                  Connections
-                </Button>
-                <Button color="inherit" component={Link} to="/messages" sx={{ fontWeight: 600 }}>
-                  Messages
-                </Button>
-                <Button color="inherit" component={Link} to="/schools" sx={{ fontWeight: 600 }}>
-                  Schools
-                </Button>
-              </>
-            )}
-            {isAuth && user?.Statut === 'admin' && (
-              <Button color="inherit" component={Link} to="/admin" sx={{ fontWeight: 600 }}>
-                Admin
+              <Button
+                color="inherit"
+                component={Link}
+                to="/profile"
+                sx={{ minWidth: 0, p: 0, mr: 2 }}
+              >
+                <Avatar
+                  src={user?.ProfileImagePath ? user.ProfileImagePath : undefined}
+                  sx={{ bgcolor: 'secondary.main', width: 36, height: 36 }}
+                >
+                  {!user?.ProfileImagePath && (user?.Nom ? user.Nom[0].toUpperCase() : 'U')}
+                </Avatar>
               </Button>
             )}
-            {!isAuth && (
-              <>
-                <Button color="inherit" component={Link} to="/login" sx={{ fontWeight: 600 }}>
-                  Login
+            <Box sx={{ flexGrow: 1, display: 'inline-flex', alignItems: 'center' }}>
+              <Button color="inherit" component={Link} to="/" sx={{ fontWeight: 600 }}>
+                Home
+              </Button>
+              {isAuth && (
+                <>
+                  <Button color="inherit" component={Link} to="/connections" sx={{ fontWeight: 600 }}>
+                    Connections
+                  </Button>
+                  <Button color="inherit" component={Link} to="/messages" sx={{ fontWeight: 600 }}>
+                    Messages
+                  </Button>
+                  <Button color="inherit" component={Link} to="/schools" sx={{ fontWeight: 600 }}>
+                    Schools
+                  </Button>
+                </>
+              )}
+              {isAuth && user?.Statut === 'admin' && (
+                <Button color="inherit" component={Link} to="/admin" sx={{ fontWeight: 600 }}>
+                  Admin
                 </Button>
-                <Button color="inherit" component={Link} to="/register" sx={{ fontWeight: 600 }}>
-                  Register
-                </Button>
-              </>
-            )}
-          </Box>
-        </Toolbar>
-      </AppBar>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <RequireAuth>
-              <Home />
-            </RequireAuth>
-          }
-        />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route
-          path="/connections"
-          element={
-            <RequireAuth>
-              <Connections />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/admin"
-          element={
-            <RequireAdmin>
-              <Admin />
-            </RequireAdmin>
-          }
-        />
-        <Route
-          path="/messages"
-          element={
-            <RequireAuth>
-              <Messages />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/messages/:userId"
-          element={
-            <RequireAuth>
-              <Messages />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/messages/*"
-          element={
-            <RequireAuth>
-              <Messages />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/schools"
-          element={
-            <RequireAuth>
-              <Schools />
-            </RequireAuth>
-          }
-        />
-      </Routes>
-    </Router>
+              )}
+              {!isAuth && (
+                <>
+                  <Button color="inherit" component={Link} to="/login" sx={{ fontWeight: 600 }}>
+                    Login
+                  </Button>
+                  <Button color="inherit" component={Link} to="/register" sx={{ fontWeight: 600 }}>
+                    Register
+                  </Button>
+                </>
+              )}
+            </Box>
+          </Toolbar>
+        </AppBar>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <RequireAuth>
+                <Home />
+              </RequireAuth>
+            }
+          />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route
+            path="/connections"
+            element={
+              <RequireAuth>
+                <Connections />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <RequireAdmin>
+                <Admin />
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="/messages"
+            element={
+              <RequireAuth>
+                <Messages />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/messages/:userId"
+            element={
+              <RequireAuth>
+                <Messages />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/messages/*"
+            element={
+              <RequireAuth>
+                <Messages />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/schools"
+            element={
+              <RequireAuth>
+                <Schools />
+              </RequireAuth>
+            }
+          />
+        </Routes>
+      </Router>
+    </ThemeProvider>
   );
 }
 
